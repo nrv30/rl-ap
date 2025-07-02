@@ -1,6 +1,4 @@
 #include "raylib.h"
-#define RAYGUI_IMPLEMENTATION
-#include "raygui.h"
 
 #include <iostream>
 #include <list>
@@ -8,8 +6,8 @@
 #include <string.h>
 #include <iterator>
 
-float SCREEN_WIDTH = 1920;
-float SCREEN_HEIGHT = 1280;
+float SCREEN_WIDTH = 600;
+float SCREEN_HEIGHT = 800;
 
 typedef enum {
     START,
@@ -19,6 +17,9 @@ STATE state = START;
 
 void loadSongs(FilePathList droppedFiles, std::vector<std::string>* titles, std::list<Music>*songs);
 
+void parseNameFromPath(std::string* src);
+
+
 
 int main(void) {
     SetTraceLogLevel(LOG_DEBUG);
@@ -26,22 +27,20 @@ int main(void) {
     InitAudioDevice();
     SetMasterVolume(.5);
 
+    // Data structures
     std::vector<std::string> titles;
     std::list<Music> songs;
 
     std::list<Music>::iterator it_song;
     std::vector<std::string>::iterator it_path;
 
+    // Flags
     bool songStarted, isPause, autoplay;
     songStarted = isPause = false;
 
-    const int vertpad = 100;
-    Rectangle menubar {0, 0, SCREEN_WIDTH, vertpad};
-    Rectangle panelRec = {0, menubar.height, SCREEN_WIDTH*.25f, SCREEN_HEIGHT-vertpad*2};
-    Rectangle panelContentRec = {0, 0, 340, 340 };
-    Rectangle panelView = { 0 };
-    Vector2 panelScroll = { 99, -20 };
-
+    // TODO: Embedd in the exe
+    // Assets
+    Texture play = LoadTexture("../../assets/black-icon/Music-On.png");
 
     SetTargetFPS(60);
     while(!WindowShouldClose()) {
@@ -55,6 +54,9 @@ int main(void) {
                 it_path = titles.begin();
                 state = PLAYING;
             }
+            for (auto& s : titles) {
+                std::cout << s << '\n';
+            }
         }      
 
         if (state == PLAYING) {
@@ -62,7 +64,7 @@ int main(void) {
                 PlayMusicStream(*it_song);
                 songStarted = true;
             } else {
-                if (IsKeyPressed(KEY_RIGHT) && it_song != songs.end()) {
+                if (IsKeyPressed(KEY_RIGHT) && it_song != std::prev(songs.end())) {
                     StopMusicStream(*it_song);
                     it_song++; 
                     songStarted = false;
@@ -85,13 +87,19 @@ int main(void) {
 
         BeginDrawing();
         ClearBackground(RAYWHITE);
-        DrawRectangleRec(menubar, BLACK); // Menu Bar
+
+        // DrawRectangleRec(menubar, BLACK); // Menu Bar
         //GuiGroupBox((Rectangle) {SCREEN_WIDTH+SCREEN_WIDTH*.25f, 100, SCREEN_WIDTH*.075f, SCREEN_HEIGHT-100}, "Queue");
 
         if (state == START) {
             const char* text = "DROP MUSIC";
             DrawText(text, SCREEN_WIDTH/2 - MeasureText(text, 25)/2, SCREEN_HEIGHT/2 - 25, 25, SKYBLUE);
         } else {
+            // TODO: Create a full-screen vs.playlist view state 
+            // Full-Screen
+            // --------------------------------------------------
+
+            DrawTexture(play, SCREEN_WIDTH/2.0f-play.width, SCREEN_HEIGHT/2.0f-play.height, WHITE);
             // const char* text = (*it_path).c_str();
             // TraceLog(LOG_DEBUG, TextFormat("%s", text));
             // DrawText(text, SCREEN_WIDTH/2 - MeasureText(text, 10)/2, SCREEN_HEIGHT/2 - 25, 10, SKYBLUE);
@@ -107,13 +115,9 @@ int main(void) {
             //     DrawRectangle(0, y, songw, songh,BLACK);
             //     y+=songh;
             //     DrawRectangle(0, y, songw, (float)pad, GRAY);
-            // }
-
-            GuiScrollPanel(panelRec, NULL, panelContentRec, &panelScroll, &panelView);
-
-            BeginScissorMode(panelView.x, panelView.y, panelView.width, panelView.height);
-                GuiGrid((Rectangle){panelRec.x + panelScroll.x, panelRec.y + panelScroll.y, panelContentRec.width, panelContentRec.height}, NULL, 16, 3, NULL);
-            EndScissorMode();            
+            // }    
+            
+            // DrawRectangle(0, SCREEN_HEIGHT-100, SCREEN_WIDTH, 100, BLACK);
         }
         EndDrawing();
     }
@@ -133,6 +137,7 @@ void loadSongs(FilePathList droppedFiles, std::vector<std::string>* titles, std:
             if (IsMusicValid(song)) {
 
                 (*titles).emplace_back(droppedFiles.paths[i]);
+                parseNameFromPath((&(*titles)[titles->size()-1]));
                 song.looping = false;
                 (*songs).emplace_back(song);
             } else {
@@ -144,4 +149,23 @@ void loadSongs(FilePathList droppedFiles, std::vector<std::string>* titles, std:
             UnloadDirectoryFiles(dir);
         }
     }
+}
+
+// has to be legit music file
+void parseNameFromPath(std::string* src) {
+    std::string temp;
+    std::string::reverse_iterator it_s = (*src).rbegin();
+    it_s--;
+    bool before = true;
+    while(*it_s != '\\' && *it_s != '/') {
+
+        if (!before) {
+            temp.insert(0, std::string(1, *it_s));
+        } else if (*it_s == '.') {
+            before = !before;
+        }
+        
+        it_s++;
+    }
+    *src = temp;
 }
