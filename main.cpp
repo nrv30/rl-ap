@@ -135,8 +135,8 @@ int main(void) {
                 BeginTextureMode(songqueue);
                     ClearBackground(BLANK);
                     auto temp_it_titles = std::next(it_titles, 1);
-                    for (float y = content.y; temp_it_titles != titles.end(); temp_it_titles++, y+=songpad+songh, i++) {
-                        Rectangle songbox = {content.x + songpad, y, songw, songh};
+                    for (float y = 0; temp_it_titles != titles.end(); temp_it_titles++, y+=songpad+songh) {
+                        Rectangle songbox = {songpad, y, songw, songh};
                         const char* songname = (*temp_it_titles).c_str();
                         DrawRectangleRounded(songbox, .3f, 10, SKYBLUE);
                         BeginScissorMode(songbox.x, songbox.y, songbox.width, songbox.height);
@@ -145,8 +145,9 @@ int main(void) {
                         EndScissorMode();
                     }
                 EndTextureMode();
-                DrawTextureRec(songqueue.texture, (Rectangle) {0, 0, (float)songqueue.texture.width, (float)-songqueue.texture.height},
-                           (Vector2) {content.x, content.y}, WHITE);
+                DrawTexturePro(songqueue.texture, (Rectangle) {0, 0, (float)songqueue.texture.width, 
+                               (float)-songqueue.texture.height},
+                               content, (Vector2){0,0}, 0.0f, WHITE);
             }
             DrawRectangle(0, SCREEN_HEIGHT - control_panel, SCREEN_WIDTH, control_panel, BLACK);
         }
