@@ -1,4 +1,5 @@
 #include "raylib.h"
+#include "raymath.h"
 
 #include <iostream>
 #include <list>
@@ -35,7 +36,8 @@ int main(void) {
 
     // Flags
     bool songStarted, isPause, autoplay;
-    songStarted = isPause = false;
+     songStarted = isPause = false;
+    float scroll_offset = 0;
 
     // TODO: Embedd in the exe
     // Assets
@@ -99,6 +101,9 @@ int main(void) {
                         PauseMusicStream(*it_song);
                     }
                     isPause = !isPause;
+                } else if (CheckCollisionPointRec(GetMousePosition(), content)) {                    
+                    float msmove = GetMouseWheelMove();
+                    if (msmove != 0) scroll_offset += msmove * 20.0f;
                 }
                 UpdateMusicStream(*it_song);
             }
@@ -140,14 +145,20 @@ int main(void) {
                         const char* songname = (*temp_it_titles).c_str();
                         DrawRectangleRounded(songbox, .3f, 10, SKYBLUE);
                         BeginScissorMode(songbox.x, songbox.y, songbox.width, songbox.height);
-                            DrawText(songname, songbox.x + songbox.width/2.0f-MeasureText(songname, 25)/2.0f,
-                                    songbox.y + songbox.height/2.0f, 25, WHITE);
+                            DrawText(songname, songbox.x + 5,songbox.y + songbox.height/2.0f - 10, 25, WHITE);
                         EndScissorMode();
                     }
                 EndTextureMode();
-                DrawTexturePro(songqueue.texture, (Rectangle) {0, 0, (float)songqueue.texture.width, 
-                               (float)-songqueue.texture.height},
-                               content, (Vector2){0,0}, 0.0f, WHITE);
+                
+                float listsize = (songs.size()*songpad + songs.size()*songh);
+                float maxScroll =  listsize - content.height; 
+                scroll_offset = Clamp(scroll_offset, -maxScroll, 0);
+
+                Vector2 origin = { 0, 0 };
+                Rectangle source = { 0, scroll_offset, (float)songqueue.texture.width, (float)-songqueue.texture.height }; // flip Y
+                Rectangle dest = content;
+                DrawTexturePro(songqueue.texture, source, dest,
+                               origin, 0.0f, WHITE);
             }
             DrawRectangle(0, SCREEN_HEIGHT - control_panel, SCREEN_WIDTH, control_panel, BLACK);
         }
