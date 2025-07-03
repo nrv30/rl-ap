@@ -184,9 +184,8 @@ int main(void) {
 void drawControlPanel(const float duration, const float timePlayed, Rectangle controlpanel, Rectangle progbar) {
         DrawRectangle(0, SCREEN_HEIGHT - controlpanel.height, SCREEN_WIDTH, controlpanel.height, RAYWHITE);
         
-
-        float pretty_duration = (int)duration % 60; 
-        DrawText(TextFormat("%d:%2.0f", (int)duration, pretty_duration), 5, progbar.y+20, 10, BLACK);
+        int sec = (int)duration % 60; 
+        DrawText(TextFormat("%02d:%02d", (int)duration - sec, sec), 5, progbar.y+20, 10, BLACK);
         float fill = progbar.width*timePlayed;
         DrawRectangleRec((Rectangle) {progbar.x, progbar.y, fill, progbar.height}, BLACK);
         DrawRectangleLines(progbar.x, progbar.y, progbar.width, progbar.height, PINK);
