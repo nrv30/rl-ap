@@ -104,28 +104,28 @@ int main(void) {
 
 
             float borderpad = SCREEN_WIDTH/10.0f;
+            const float control_panel = SCREEN_HEIGHT/5.0f;
             
             Rectangle content = {
                 .x = borderpad,
                 .y = borderpad,
                 .width = SCREEN_WIDTH-borderpad*2.0f,
-                .height = SCREEN_HEIGHT-borderpad*2.0f,
+                .height = SCREEN_HEIGHT-control_panel-borderpad*2,
             };
 
-            // TraceLog(LOG_DEBUG, TextFormat("conw: %f conh: %f", content.width, content.height));
-
-            float songpad = (content.height/5.0f)/10.0f;
+            const float songpad = (content.height/5.0f)/10.0f;
             auto it = it_song;
             const float songw = content.width - songpad*2.0f;
             const float songh = content.height/5.0f - songpad*2.0f;
-            // TraceLog(LOG_DEBUG, TextFormat("songw: %f songh: %f", songw, songh));
+            Color color = SKYBLUE;
             DrawRectangleLines(content.x, content.y, content.width, content.height, BLACK);
 
             for (float y = content.y; it != songs.end(); ++it, y+=songpad+songh) {
                 DrawRectangleRounded((Rectangle) {content.x + songpad, y, songw, songh}, .3f, 10, SKYBLUE);
 
             }    
-            
+
+            DrawRectangle(0, SCREEN_HEIGHT - control_panel, SCREEN_WIDTH, control_panel, BLACK);
         }
         EndDrawing();
     }
