@@ -16,10 +16,13 @@ typedef enum {
 } STATE;
 STATE state = START;
 
-void loadSongs(FilePathList droppedFiles, std::list<std::string>* titles, std::list<Music>*songs);
-void parseNameFromPath(std::string* src);
+typedef struct Track {
+    Music music;
+    std::string title;
+} Track;
 
-
+void loadSongs(FilePathList droppedFiles, std::list<Track>* tracklist_pt);
+std::string parseNameFromPath(std::string src);
 
 int main(void) {
     SetTraceLogLevel(LOG_DEBUG);
@@ -28,11 +31,8 @@ int main(void) {
     SetMasterVolume(.5);
 
     // Data structures
-    std::list<std::string> titles;
-    std::list<Music> songs;
-
-    std::list<Music>::iterator it_song;
-    std::list<std::string>::iterator it_titles;
+    std::list<Track> tracklist;
+    std::list<Track>::iterator it;
 
     // Flags
     bool songStarted, isPause, autoplay;
@@ -69,43 +69,40 @@ int main(void) {
 
         if (IsFileDropped()) {   
             FilePathList droppedFiles = LoadDroppedFiles();
-            loadSongs(droppedFiles, &titles, &songs);  
+            loadSongs(droppedFiles, &tracklist);  
             UnloadDroppedFiles(droppedFiles);
-            if (state == START && songs.size() > 0) {
-                it_song = songs.begin();
-                it_titles = titles.begin();
+            if (state == START && tracklist.size() > 0) {
+                it = tracklist.begin();
                 state = PLAYING;
             }
         }      
 
         if (state == PLAYING) {
             if (!songStarted) {
-                PlayMusicStream(*it_song);
+                PlayMusicStream((*it).music);
                 songStarted = true;
             } else {
-                if (IsKeyPressed(KEY_RIGHT) && it_song != std::prev(songs.end())) {
-                    StopMusicStream(*it_song);
-                    it_song++; 
-                    it_titles++;
+                if (IsKeyPressed(KEY_RIGHT) && it != std::prev(tracklist.end())) {
+                    StopMusicStream((*it).music);
+                    it++; 
                     songStarted = false;
-                } else if (IsKeyPressed(KEY_LEFT) && it_song != songs.begin()) {
-                    StopMusicStream(*it_song);
-                    it_song--; 
-                    it_titles--;
+                } else if (IsKeyPressed(KEY_LEFT) && it != tracklist.begin()) {
+                    StopMusicStream((*it).music);
+                    it--; 
                     songStarted = false;
                 } else if (IsKeyPressed(KEY_SPACE)) {
                     if (isPause) {
-                        ResumeMusicStream(*it_song);
+                        ResumeMusicStream((*it).music);
                     }
                     else {
-                        PauseMusicStream(*it_song);
+                        PauseMusicStream((*it).music);
                     }
                     isPause = !isPause;
                 } else if (CheckCollisionPointRec(GetMousePosition(), content)) {                    
                     float msmove = GetMouseWheelMove();
                     if (msmove != 0) scroll_offset += msmove * 20.0f;
                 }
-                UpdateMusicStream(*it_song);
+                UpdateMusicStream((*it).music);
             }
         }
 
@@ -136,13 +133,13 @@ int main(void) {
             DrawRectangleLines(content.x, content.y, content.width, content.height, BLACK);
 
             // avoid dereference last elem
-            if (it_song != std::prev(songs.end())) {
+            if (it != std::prev(tracklist.end())) {
                 BeginTextureMode(songqueue);
                     ClearBackground(BLANK);
-                    auto temp_it_titles = std::next(it_titles, 1);
-                    for (float y = 0; temp_it_titles != titles.end(); temp_it_titles++, y+=songpad+songh) {
+                    auto temp_it = std::next(it, 1);
+                    for (float y = 0; temp_it != tracklist.end(); temp_it++, y+=songpad+songh) {
                         Rectangle songbox = {songpad, y, songw, songh};
-                        const char* songname = (*temp_it_titles).c_str();
+                        const char* songname = (*temp_it).title.c_str();
                         DrawRectangleRounded(songbox, .3f, 10, SKYBLUE);
                         BeginScissorMode(songbox.x, songbox.y, songbox.width, songbox.height);
                             DrawText(songname, songbox.x + 5,songbox.y + songbox.height/2.0f - 10, 25, WHITE);
@@ -150,7 +147,7 @@ int main(void) {
                     }
                 EndTextureMode();
                 
-                float listsize = (songs.size()*songpad + songs.size()*songh);
+                float listsize = (tracklist.size()*songpad + tracklist.size()*songh);
                 float maxScroll =  listsize - content.height; 
                 scroll_offset = Clamp(scroll_offset, -maxScroll, 0);
 
@@ -164,8 +161,8 @@ int main(void) {
         }
         EndDrawing();
     }
-    for (auto& s : songs) {
-        UnloadMusicStream(s);
+    for (auto& s : tracklist) {
+        UnloadMusicStream(s.music);
     }
     UnloadRenderTexture(songqueue);
     CloseAudioDevice();
@@ -173,32 +170,33 @@ int main(void) {
     return 0;
 }
 
-void loadSongs(FilePathList droppedFiles, std::list<std::string>* titles, std::list<Music>* songs) {
+void loadSongs(FilePathList droppedFiles, std::list<Track>* tracklist_pt) {
     for (int i = 0; i < (int)droppedFiles.count; i++)
     {
         if (IsPathFile(droppedFiles.paths[i])) {
             Music song = LoadMusicStream(droppedFiles.paths[i]);
             if (IsMusicValid(song)) {
-
-                (*titles).emplace_back(droppedFiles.paths[i]);
-                parseNameFromPath((&(*titles).back()));
+                std::string title = droppedFiles.paths[i];
+                Track track = {0};
+                track.title = parseNameFromPath(title);
                 song.looping = false;
-                (*songs).emplace_back(song);
+                track.music = song;
+                (*tracklist_pt).emplace_back(track);
             } else {
                 UnloadMusicStream(song);
             }
         } else {
             FilePathList dir = LoadDirectoryFiles(droppedFiles.paths[i]);
-            loadSongs(dir, titles, songs);
+            loadSongs(dir, tracklist_pt);
             UnloadDirectoryFiles(dir);
         }
     }
 }
 
 // has to be legit music file
-void parseNameFromPath(std::string* src) {
+std::string parseNameFromPath(std::string src) {
     std::string temp;
-    std::string::reverse_iterator it_s = (*src).rbegin();
+    std::string::reverse_iterator it_s = src.rbegin();
     it_s--;
     bool before = true;
     while(*it_s != '\\' && *it_s != '/') {
@@ -211,5 +209,5 @@ void parseNameFromPath(std::string* src) {
         
         it_s++;
     }
-    *src = temp;
+    return temp;
 }
