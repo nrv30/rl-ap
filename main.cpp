@@ -32,7 +32,7 @@ int main(void) {
     std::list<Music> songs;
 
     std::list<Music>::iterator it_song;
-    std::vector<std::string>::iterator it_path;
+    std::vector<std::string>::iterator it_titles;
 
     // Flags
     bool songStarted, isPause, autoplay;
@@ -46,6 +46,11 @@ int main(void) {
     ImageRotate(&drop, 180);
     Texture drop_text = LoadTextureFromImage(drop);
 
+    Texture play = LoadTexture("../../assets/black-icon/Play.png");
+    Texture pause = LoadTexture("../../assets/black-icon/Pause.png");
+    Texture left_skip = LoadTexture("../../assets/black-icon/SolidArrow_Left.png");
+    Texture right_skip = LoadTexture("../../assets/black-icon/SolidArrow_Right.png");
+
     SetTargetFPS(60);
     while(!WindowShouldClose()) {
 
@@ -55,11 +60,8 @@ int main(void) {
             UnloadDroppedFiles(droppedFiles);
             if (state == START && songs.size() > 0) {
                 it_song = songs.begin();
-                it_path = titles.begin();
+                it_titles = titles.begin();
                 state = PLAYING;
-            }
-            for (auto& s : titles) {
-                std::cout << s << '\n';
             }
         }      
 
@@ -71,10 +73,12 @@ int main(void) {
                 if (IsKeyPressed(KEY_RIGHT) && it_song != std::prev(songs.end())) {
                     StopMusicStream(*it_song);
                     it_song++; 
+                    it_titles++;
                     songStarted = false;
                 } else if (IsKeyPressed(KEY_LEFT) && it_song != songs.begin()) {
                     StopMusicStream(*it_song);
                     it_song--; 
+                    it_titles--;
                     songStarted = false;
                 } else if (IsKeyPressed(KEY_SPACE)) {
                     if (isPause) {
@@ -120,16 +124,25 @@ int main(void) {
             };
 
             const float songpad = (content.height/5.0f)/10.0f;
-            auto it = it_song;
             const float songw = content.width - songpad*2.0f;
             const float songh = content.height/5.0f - songpad*2.0f;
             Color color = SKYBLUE;
             DrawRectangleLines(content.x, content.y, content.width, content.height, BLACK);
 
-            for (float y = content.y; it != songs.end(); ++it, y+=songpad+songh) {
-                DrawRectangleRounded((Rectangle) {content.x + songpad, y, songw, songh}, .3f, 10, SKYBLUE);
+            BeginScissorMode(content.x, content.y, content.width, content.height);
+            auto temp_it_songs = std::next(it_song, 2);
+            auto temp_it_titles = std::next(it_titles, 2);
+            for (float y = content.y; temp_it_songs != songs.end(); ++temp_it_songs, ++temp_it_titles, y+=songpad+songh) {
+                Rectangle songbox = {content.x + songpad, y, songw, songh};
+                const char* songname = (*temp_it_titles).c_str();
+                DrawRectangleRounded(songbox, .3f, 10, SKYBLUE);
+                BeginScissorMode(songbox.x, songbox.y, songbox.width, songbox.height);
+                DrawText(songname, songbox.x + songbox.width/2.0f-MeasureText(songname, 25)/2.0f,
+                        songbox.y + songbox.height/2.0f, 25, WHITE);
+                EndScissorMode();
 
-            }    
+            }
+            EndScissorMode();    
 
             DrawRectangle(0, SCREEN_HEIGHT - control_panel, SCREEN_WIDTH, control_panel, BLACK);
         }
