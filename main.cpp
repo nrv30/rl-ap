@@ -86,7 +86,7 @@ int main(void) {
         }
 
         BeginDrawing();
-        ClearBackground(RAYWHITE);
+        ClearBackground(DARKGRAY);
 
         // DrawRectangleRec(menubar, BLACK); // Menu Bar
         //GuiGroupBox((Rectangle) {SCREEN_WIDTH+SCREEN_WIDTH*.25f, 100, SCREEN_WIDTH*.075f, SCREEN_HEIGHT-100}, "Queue");
@@ -98,26 +98,34 @@ int main(void) {
             // TODO: Create a full-screen vs.playlist view state 
             // Full-Screen
             // --------------------------------------------------
+            // Playlist
+            // DO the button is psd and export as png
+            // Border?
 
-            DrawTexture(play, SCREEN_WIDTH/2.0f-play.width, SCREEN_HEIGHT/2.0f-play.height, WHITE);
-            // const char* text = (*it_path).c_str();
-            // TraceLog(LOG_DEBUG, TextFormat("%s", text));
-            // DrawText(text, SCREEN_WIDTH/2 - MeasureText(text, 10)/2, SCREEN_HEIGHT/2 - 25, 10, SKYBLUE);
 
-            // auto it = std::next(it_song);
-            // const float songw = SCREEN_WIDTH/6.0f;
-            // const float songh = SCREEN_HEIGHT/10.0f;
-            // Rectangle panelContentRec = {0, 0, songw, songh+10};
-
-            // const int pad = 10;
-
-            // for (float y = 0; it != songs.end(); ++it, y+=pad) {
-            //     DrawRectangle(0, y, songw, songh,BLACK);
-            //     y+=songh;
-            //     DrawRectangle(0, y, songw, (float)pad, GRAY);
-            // }    
+            float borderpad = SCREEN_WIDTH/10.0f;
             
-            // DrawRectangle(0, SCREEN_HEIGHT-100, SCREEN_WIDTH, 100, BLACK);
+            Rectangle content = {
+                .x = borderpad,
+                .y = borderpad,
+                .width = SCREEN_WIDTH-borderpad*2.0f,
+                .height = SCREEN_HEIGHT-borderpad*2.0f,
+            };
+
+            // TraceLog(LOG_DEBUG, TextFormat("conw: %f conh: %f", content.width, content.height));
+
+            float songpad = (content.height/5.0f)/10.0f;
+            auto it = it_song;
+            const float songw = content.width - songpad*2.0f;
+            const float songh = content.height/5.0f - songpad*2.0f;
+            // TraceLog(LOG_DEBUG, TextFormat("songw: %f songh: %f", songw, songh));
+            DrawRectangleLines(content.x, content.y, content.width, content.height, BLACK);
+
+            for (float y = content.y; it != songs.end(); ++it, y+=songpad+songh) {
+                DrawRectangleRounded((Rectangle) {content.x + songpad, y, songw, songh}, .3f, 10, SKYBLUE);
+
+            }    
+            
         }
         EndDrawing();
     }
