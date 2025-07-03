@@ -40,7 +40,11 @@ int main(void) {
 
     // TODO: Embedd in the exe
     // Assets
-    Texture play = LoadTexture("../../assets/black-icon/Music-On.png");
+    //Texture play = LoadTexture("../../assets/black-icon/Music-On.png");
+    Image drop = LoadImage("../../assets/black-icon/Home.png");
+    ImageResize(&drop, drop.width*2, drop.height*2);
+    ImageRotate(&drop, 180);
+    Texture drop_text = LoadTextureFromImage(drop);
 
     SetTargetFPS(60);
     while(!WindowShouldClose()) {
@@ -93,7 +97,9 @@ int main(void) {
 
         if (state == START) {
             const char* text = "DROP MUSIC";
-            DrawText(text, SCREEN_WIDTH/2 - MeasureText(text, 25)/2, SCREEN_HEIGHT/2 - 25, 25, SKYBLUE);
+            const int fontsize = 50;
+            DrawText(text, SCREEN_WIDTH/2.0f - MeasureText(text, fontsize)/2, SCREEN_HEIGHT/3.0f - fontsize, fontsize, SKYBLUE);
+            DrawTexture(drop_text, SCREEN_WIDTH/2.0f-drop.width/2.0f, SCREEN_HEIGHT/2.0f, WHITE);
         } else {
             // TODO: Create a full-screen vs.playlist view state 
             // Full-Screen
