@@ -1,9 +1,7 @@
 #include "raylib.h"
 #include "raymath.h"
 
-#include <iostream>
 #include <list>
-#include <vector>
 #include <string.h>
 #include <iterator>
 
@@ -24,7 +22,7 @@ typedef struct Track {
 void loadSongs(FilePathList droppedFiles, std::list<Track>* tracklist_pt);
 std::string parseNameFromPath(std::string src);
 
-void seek(std::list<Track>::iterator* it_pt, const float length, const float abs_timeplayed, const float amount);
+void seek_by_amount(std::list<Track>::iterator* it_pt, const float length, const float abs_timeplayed, const float amount);
 void drawControlPanel(float duration, float timeplayed, Rectangle controlpanel, Rectangle progbar);
 
 
@@ -121,9 +119,14 @@ int main(void) {
                     }
                     isPause = !isPause;
                 } else if (IsKeyPressed(KEY_RIGHT)) {
-                    seek(&it, length, abs_timeplayed, 10.0f);
+                    seek_by_amount(&it, length, abs_timeplayed, 10.0f);
                 } else if (IsKeyPressed(KEY_LEFT)) {
-                    seek(&it, length, abs_timeplayed, -10.0f);
+                    seek_by_amount(&it, length, abs_timeplayed, -10.0f);
+                } else if (CheckCollisionPointRec(GetMousePosition(), progbar)) {
+                    if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
+                        float pos = (GetMouseX() - progbar.x) / progbar.width;
+                        SeekMusicStream((*it).music, length*pos);
+                    }
                 }
                 
                 if (CheckCollisionPointRec(GetMousePosition(), content)) {                    
@@ -192,7 +195,7 @@ int main(void) {
     return 0;
 }
 
-void seek(std::list<Track>::iterator* it_pt, const float length, const float abs_timeplayed, const float amount) {
+void seek_by_amount(std::list<Track>::iterator* it_pt, const float length, const float abs_timeplayed, const float amount) {
     // TraceLog(LOG_DEBUG, TextFormat("amount: %f", amount));
     // TraceLog(LOG_DEBUG, TextFormat("abs_timeplayed: %f", abs_timeplayed));
     float position = Clamp(abs_timeplayed + amount, 0.0f, length);
