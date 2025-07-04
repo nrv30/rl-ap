@@ -24,7 +24,8 @@ typedef struct Track {
 void loadSongs(FilePathList droppedFiles, std::list<Track>* tracklist_pt);
 std::string parseNameFromPath(std::string src);
 
-void drawControlPanel(float duration, float timePlayed, Rectangle controlpanel, Rectangle progbar);
+void seek(std::list<Track>::iterator* it_pt, const float length, const float abs_timeplayed, const float amount);
+void drawControlPanel(float duration, float timeplayed, Rectangle controlpanel, Rectangle progbar);
 
 
 int main(void) {
@@ -40,8 +41,8 @@ int main(void) {
     // Flags
     bool songStarted, isPause, autoplay;
      songStarted = isPause = false;
-    float duration, scroll_offset, timePlayed;
-    duration = scroll_offset = timePlayed = 0;
+    float length, abs_timeplayed, scroll_offset, timeplayed;
+    length = abs_timeplayed = scroll_offset = timeplayed = 0;
 
     // TODO: Embedd in the exe
     // Assets
@@ -76,9 +77,9 @@ int main(void) {
 
     Rectangle progbar = {
         .x = borderpad,
-        .y = controlpanel.y + controlpanel.height/2.0f - 50.0f/2.0f,
-        .width = SCREEN_WIDTH,
-        .height = 50.0f
+        .y = controlpanel.y + controlpanel.height*.75f - 25.0f/2.0f,
+        .width = SCREEN_WIDTH-borderpad*2.0f,
+        .height = 25.0f
     };
 
     SetTargetFPS(60);
@@ -95,15 +96,19 @@ int main(void) {
         }      
 
         if (state == PLAYING) {
+            // TraceLog(LOG_DEBUG, TextFormat("length: %f", abslength));
             if (!songStarted) {
+                length = GetMusicTimeLength(((*it).music));
                 PlayMusicStream((*it).music);
                 songStarted = true;
             } else {
-                if (IsKeyPressed(KEY_RIGHT) && it != std::prev(tracklist.end())) {
+                if (IsKeyDown(KEY_RIGHT) && (IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL)) 
+                    && it != std::prev(tracklist.end())) {
                     StopMusicStream((*it).music);
                     it++; 
                     songStarted = false;
-                } else if (IsKeyPressed(KEY_LEFT) && it != tracklist.begin()) {
+                } else if (IsKeyDown(KEY_RIGHT) && (IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL))
+                           && it != tracklist.begin()) {
                     StopMusicStream((*it).music);
                     it--; 
                     songStarted = false;
@@ -115,14 +120,21 @@ int main(void) {
                         PauseMusicStream((*it).music);
                     }
                     isPause = !isPause;
-                } else if (CheckCollisionPointRec(GetMousePosition(), content)) {                    
+                } else if (IsKeyPressed(KEY_RIGHT)) {
+                    seek(&it, length, abs_timeplayed, 10.0f);
+                } else if (IsKeyPressed(KEY_LEFT)) {
+                    seek(&it, length, abs_timeplayed, -10.0f);
+                }
+                
+                if (CheckCollisionPointRec(GetMousePosition(), content)) {                    
                     float msmove = GetMouseWheelMove();
                     if (msmove != 0) scroll_offset += msmove * 20.0f;
                 }
-                duration = GetMusicTimePlayed((*it).music);
-                timePlayed = duration/GetMusicTimeLength(((*it).music));
+
+                abs_timeplayed = GetMusicTimePlayed((*it).music);
+                timeplayed = abs_timeplayed/length;
                 
-                // if (timePlayed >= .99) {
+                // if (timeplayed >= .99) {
                 //     skipForward(&track, &songStarted);
                 UpdateMusicStream((*it).music);
             }
@@ -146,7 +158,6 @@ int main(void) {
             // avoid dereference last elem
             if (it != std::prev(tracklist.end())) {
                 BeginTextureMode(songqueue);
-                    ClearBackground(BLANK);
                     auto temp_it = std::next(it, 1);
                     for (float y = 0; temp_it != tracklist.end(); temp_it++, y+=songpad+songh) {
                         Rectangle songbox = {songpad, y, songw, songh};
@@ -168,7 +179,7 @@ int main(void) {
                 DrawTexturePro(songqueue.texture, source, dest,
                                origin, 0.0f, WHITE);
             }
-            drawControlPanel(duration, timePlayed, controlpanel, progbar);
+            drawControlPanel(abs_timeplayed, timeplayed, controlpanel, progbar);
         }
         EndDrawing();
     }
@@ -181,14 +192,24 @@ int main(void) {
     return 0;
 }
 
-void drawControlPanel(const float duration, const float timePlayed, Rectangle controlpanel, Rectangle progbar) {
-        DrawRectangle(0, SCREEN_HEIGHT - controlpanel.height, SCREEN_WIDTH, controlpanel.height, RAYWHITE);
+void seek(std::list<Track>::iterator* it_pt, const float length, const float abs_timeplayed, const float amount) {
+    // TraceLog(LOG_DEBUG, TextFormat("amount: %f", amount));
+    // TraceLog(LOG_DEBUG, TextFormat("abs_timeplayed: %f", abs_timeplayed));
+    float position = Clamp(abs_timeplayed + amount, 0.0f, length);
+    // TraceLog(LOG_DEBUG, TextFormat("position: %d", position));
+    SeekMusicStream((*(*it_pt)).music, position); 
+}
+
+void drawControlPanel(const float duration, const float timeplayed, Rectangle controlpanel, Rectangle progbar) {
+        DrawRectangle(0, SCREEN_HEIGHT - controlpanel.height, SCREEN_WIDTH, controlpanel.height, LIGHTGRAY);
         
         int sec = (int)duration % 60; 
-        DrawText(TextFormat("%02d:%02d", (int)duration - sec, sec), 5, progbar.y+20, 10, BLACK);
-        float fill = progbar.width*timePlayed;
-        DrawRectangleRec((Rectangle) {progbar.x, progbar.y, fill, progbar.height}, BLACK);
-        DrawRectangleLines(progbar.x, progbar.y, progbar.width, progbar.height, PINK);
+        int min = ((int)duration - sec);
+        if (min >= 60) min /= 60; 
+        DrawText(TextFormat("%02d:%02d", min, sec), 5, progbar.y+5, 20, DARKGRAY);
+        float fill = progbar.width*timeplayed;
+        DrawRectangleRec((Rectangle) {progbar.x, progbar.y, fill, progbar.height}, SKYBLUE);
+        DrawRectangleLines(progbar.x, progbar.y, progbar.width, progbar.height, DARKGRAY);
 
 }
 void loadSongs(FilePathList droppedFiles, std::list<Track>* tracklist_pt) {
@@ -227,7 +248,6 @@ std::string parseNameFromPath(std::string src) {
         } else if (*it_s == '.') {
             before = !before;
         }
-        
         it_s++;
     }
     return temp;
