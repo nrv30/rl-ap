@@ -23,24 +23,28 @@ void loadSongs(FilePathList droppedFiles, std::list<Track>* tracklist_pt);
 std::string parseNameFromPath(std::string src);
 
 void seek_by_amount(std::list<Track>::iterator* it_pt, const float length, const float abs_timeplayed, const float amount);
-void drawControlPanel(float duration, float timeplayed, Rectangle controlpanel, Rectangle progbar, std::string title);
+
+
+void drawTitle(std::string title, Rectangle progbar, Rectangle controlpanel);
+void drawProgbar(const float abs_timeplayed, const float timeplayed, Rectangle progbar);
+void drawVolbar(const float vol, Rectangle volbar);
 
 
 int main(void) {
     SetTraceLogLevel(LOG_DEBUG);
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Audio Player");
     InitAudioDevice();
-    SetMasterVolume(.5);
 
     // Data structures
     std::list<Track> tracklist;
     std::list<Track>::iterator it;
 
-    // Flags
+    // Flags & vars
     bool songStarted, isPause, autoplay;
      songStarted = isPause = false;
     float length, abs_timeplayed, scroll_offset, timeplayed;
     length = abs_timeplayed = scroll_offset = timeplayed = 0;
+    float vol = 0.5;
 
     // TODO: Embedd in the exe
     // Assets
@@ -73,14 +77,25 @@ int main(void) {
     };
     RenderTexture2D songqueue = LoadRenderTexture(content.width, content.height);
 
+    const int progheight = 25.0f;
     Rectangle progbar = {
         .x = borderpad,
-        .y = controlpanel.y + controlpanel.height*.75f - 25.0f/2.0f,
+        .y = controlpanel.y + controlpanel.height*.75f - progheight/2.0f,
         .width = SCREEN_WIDTH-borderpad*2.0f,
-        .height = 25.0f
+        .height = progheight
+    };
+
+    const float vol_width = 12.5;
+    const float vertpad = 20.0f;
+    Rectangle volbar = {
+        .x = SCREEN_WIDTH - (borderpad/2.0f - vol_width/2.0f),
+        .y = controlpanel.y + vertpad,
+        .width = vol_width,
+        .height = SCREEN_HEIGHT - (controlpanel.y + vertpad) - (SCREEN_HEIGHT-(progbar.y + progbar.height)),
     };
 
     SetTargetFPS(60);
+    SetMasterVolume(.5);
     while(!WindowShouldClose()) {
 
         if (IsFileDropped()) {   
@@ -99,6 +114,7 @@ int main(void) {
                 PlayMusicStream((*it).music);
                 songStarted = true;
             } else {
+                Vector2 mousepos = GetMousePosition();
                 if (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_RIGHT)
                     && it != std::prev(tracklist.end())) {
                     StopMusicStream((*it).music);
@@ -121,16 +137,20 @@ int main(void) {
                     seek_by_amount(&it, length, abs_timeplayed, 10.0f);
                 } else if (IsKeyPressed(KEY_LEFT)) {
                     seek_by_amount(&it, length, abs_timeplayed, -10.0f);
-                } else if (CheckCollisionPointRec(GetMousePosition(), progbar)) {
+                } else if (CheckCollisionPointRec(mousepos, progbar)) {
                     if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
-                        float pos = (GetMouseX() - progbar.x) / progbar.width;
+                        float pos = (mousepos.x - progbar.x) / progbar.width;
                         SeekMusicStream((*it).music, length*pos);
                     }
-                }
-                
-                if (CheckCollisionPointRec(GetMousePosition(), content)) {                    
+                } else if (CheckCollisionPointRec(mousepos, content)) {                    
                     float msmove = GetMouseWheelMove();
                     if (msmove != 0) scroll_offset += msmove * 20.0f;
+                } else if (CheckCollisionPointRec(mousepos, volbar)) {
+                    if(IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
+                        float pos = (mousepos.y - volbar.y) / volbar.height;
+                        vol = pos;
+                        SetMasterVolume(pos);
+                    }
                 }
 
                 abs_timeplayed = GetMusicTimePlayed((*it).music);
@@ -188,7 +208,12 @@ int main(void) {
                 Rectangle dest = content;
                 DrawTexturePro(songqueue.texture, source, dest,
                                origin, 0.0f, WHITE);
-            drawControlPanel(abs_timeplayed, timeplayed, controlpanel, progbar, (*it).title);
+            // draw control panel
+            DrawRectangle(0, SCREEN_HEIGHT - controlpanel.height, SCREEN_WIDTH, controlpanel.height, LIGHTGRAY);
+
+            drawTitle((*it).title, progbar, controlpanel);
+            drawProgbar(abs_timeplayed, timeplayed, progbar);
+            drawVolbar(vol, volbar);
         }
         EndDrawing();
     }
@@ -206,25 +231,31 @@ void seek_by_amount(std::list<Track>::iterator* it_pt, const float length, const
     SeekMusicStream((*(*it_pt)).music, abs_timeplayed + amount); 
 }
 
-void drawControlPanel(const float duration, const float timeplayed, Rectangle controlpanel, Rectangle progbar, std::string title) {
-        DrawRectangle(0, SCREEN_HEIGHT - controlpanel.height, SCREEN_WIDTH, controlpanel.height, LIGHTGRAY);
-        
+void drawTitle(std::string title, Rectangle progbar, Rectangle controlpanel) {
         const char* text = title.c_str();
         const int fontsize = 24;
+        const float vertpad = 20;
         BeginScissorMode(progbar.x, controlpanel.y, progbar.width, controlpanel.height);
             DrawText(text, progbar.x + progbar.width/2.0f - MeasureText(text, fontsize)/2.0f, 
-                     controlpanel.y+20, fontsize, DARKGRAY);
+                     controlpanel.y+vertpad, fontsize, DARKGRAY);
         EndScissorMode();
-
-        int sec = (int)duration % 60; 
-        int min = ((int)duration - sec);
+}
+void drawProgbar(const float abs_timeplayed, const float timeplayed, Rectangle progbar) {
+        int sec = (int)abs_timeplayed % 60; 
+        int min = ((int)abs_timeplayed - sec);
         if (min >= 60) min /= 60; 
         DrawText(TextFormat("%02d:%02d", min, sec), 5, progbar.y+5, 20, DARKGRAY);
         float fill = progbar.width*timeplayed;
         DrawRectangleRec((Rectangle) {progbar.x, progbar.y, fill, progbar.height}, SKYBLUE);
         DrawRectangleLines(progbar.x, progbar.y, progbar.width, progbar.height, DARKGRAY);
-
 }
+
+void drawVolbar(const float vol, Rectangle volbar) {
+    DrawRectangleRec((Rectangle){volbar.x, volbar.y, volbar.width, volbar.height*vol}, SKYBLUE);
+    DrawRectangleLines(volbar.x, volbar.y, volbar.width, volbar.height, DARKGRAY);
+}
+
+
 void loadSongs(FilePathList droppedFiles, std::list<Track>* tracklist_pt) {
     for (int i = 0; i < (int)droppedFiles.count; i++)
     {
