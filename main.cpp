@@ -23,7 +23,7 @@ void loadSongs(FilePathList droppedFiles, std::list<Track>* tracklist_pt);
 std::string parseNameFromPath(std::string src);
 
 void seek_by_amount(std::list<Track>::iterator* it_pt, const float length, const float abs_timeplayed, const float amount);
-void drawControlPanel(float duration, float timeplayed, Rectangle controlpanel, Rectangle progbar);
+void drawControlPanel(float duration, float timeplayed, Rectangle controlpanel, Rectangle progbar, std::string title);
 
 
 int main(void) {
@@ -94,22 +94,21 @@ int main(void) {
         }      
 
         if (state == PLAYING) {
-            // TraceLog(LOG_DEBUG, TextFormat("length: %f", abslength));
             if (!songStarted) {
                 length = GetMusicTimeLength(((*it).music));
                 PlayMusicStream((*it).music);
                 songStarted = true;
             } else {
-                if (IsKeyDown(KEY_RIGHT) && (IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL)) 
+                if (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_RIGHT)
                     && it != std::prev(tracklist.end())) {
                     StopMusicStream((*it).music);
-                    it++; 
                     songStarted = false;
-                } else if (IsKeyDown(KEY_RIGHT) && (IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL))
+                    it++; 
+                } else if (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_LEFT)
                            && it != tracklist.begin()) {
                     StopMusicStream((*it).music);
-                    it--; 
                     songStarted = false;
+                    it--; 
                 } else if (IsKeyPressed(KEY_SPACE)) {
                     if (isPause) {
                         ResumeMusicStream((*it).music);
@@ -158,19 +157,27 @@ int main(void) {
             Color color = SKYBLUE;
             DrawRectangleLines(content.x, content.y, content.width, content.height, BLACK);
 
-            // avoid dereference last elem
+            BeginTextureMode(songqueue);
+            ClearBackground(BLACK);
             if (it != std::prev(tracklist.end())) {
-                BeginTextureMode(songqueue);
-                    auto temp_it = std::next(it, 1);
-                    for (float y = 0; temp_it != tracklist.end(); temp_it++, y+=songpad+songh) {
-                        Rectangle songbox = {songpad, y, songw, songh};
-                        const char* songname = (*temp_it).title.c_str();
-                        DrawRectangleRounded(songbox, .3f, 10, SKYBLUE);
-                        BeginScissorMode(songbox.x, songbox.y, songbox.width, songbox.height);
-                            DrawText(songname, songbox.x + 5,songbox.y + songbox.height/2.0f - 10, 25, WHITE);
-                        EndScissorMode();
-                    }
-                EndTextureMode();
+                auto temp_it = std::next(it, 1);
+                for (float y = 0; temp_it != tracklist.end(); temp_it++, y+=songpad+songh) {
+                    Rectangle songbox = {songpad, y, songw, songh};
+                    const char* songname = (*temp_it).title.c_str();
+                    DrawRectangleRounded(songbox, .3f, 10, DARKBLUE);
+                    BeginScissorMode(songbox.x, songbox.y, songbox.width, songbox.height);
+                        DrawText(songname, songbox.x + 5,songbox.y + songbox.height/2.0f - 10, 25, SKYBLUE);
+                    EndScissorMode();
+                }
+            }
+            else 
+            {
+                const char* text = "Queue is EMPTY"; 
+                const int fontsize = 50;
+                DrawText(text, content.width/2.0f - MeasureText(text, fontsize)/2.0f, content.height/2.0f, 
+                         fontsize, SKYBLUE);    
+            }
+            EndTextureMode();
                 
                 float listsize = (tracklist.size()*songpad + tracklist.size()*songh);
                 float maxScroll =  listsize - content.height; 
@@ -181,8 +188,7 @@ int main(void) {
                 Rectangle dest = content;
                 DrawTexturePro(songqueue.texture, source, dest,
                                origin, 0.0f, WHITE);
-            }
-            drawControlPanel(abs_timeplayed, timeplayed, controlpanel, progbar);
+            drawControlPanel(abs_timeplayed, timeplayed, controlpanel, progbar, (*it).title);
         }
         EndDrawing();
     }
@@ -196,16 +202,20 @@ int main(void) {
 }
 
 void seek_by_amount(std::list<Track>::iterator* it_pt, const float length, const float abs_timeplayed, const float amount) {
-    // TraceLog(LOG_DEBUG, TextFormat("amount: %f", amount));
-    // TraceLog(LOG_DEBUG, TextFormat("abs_timeplayed: %f", abs_timeplayed));
-    float position = Clamp(abs_timeplayed + amount, 0.0f, length);
-    // TraceLog(LOG_DEBUG, TextFormat("position: %d", position));
-    SeekMusicStream((*(*it_pt)).music, position); 
+    Clamp(abs_timeplayed + amount, 0, length);
+    SeekMusicStream((*(*it_pt)).music, abs_timeplayed + amount); 
 }
 
-void drawControlPanel(const float duration, const float timeplayed, Rectangle controlpanel, Rectangle progbar) {
+void drawControlPanel(const float duration, const float timeplayed, Rectangle controlpanel, Rectangle progbar, std::string title) {
         DrawRectangle(0, SCREEN_HEIGHT - controlpanel.height, SCREEN_WIDTH, controlpanel.height, LIGHTGRAY);
         
+        const char* text = title.c_str();
+        const int fontsize = 24;
+        BeginScissorMode(progbar.x, controlpanel.y, progbar.width, controlpanel.height);
+            DrawText(text, progbar.x + progbar.width/2.0f - MeasureText(text, fontsize)/2.0f, 
+                     controlpanel.y+20, fontsize, DARKGRAY);
+        EndScissorMode();
+
         int sec = (int)duration % 60; 
         int min = ((int)duration - sec);
         if (min >= 60) min /= 60; 
