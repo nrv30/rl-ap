@@ -75,7 +75,6 @@ int main(void) {
         .width = SCREEN_WIDTH-borderpad*2.0f,
         .height = SCREEN_HEIGHT-controlpanel.height-borderpad*2.0f,
     };
-    RenderTexture2D songqueue = LoadRenderTexture(content.width, content.height);
 
     const int progheight = 25.0f;
     Rectangle progbar = {
@@ -144,7 +143,7 @@ int main(void) {
                     }
                 } else if (CheckCollisionPointRec(mousepos, content)) {                    
                     float msmove = GetMouseWheelMove();
-                    if (msmove != 0) scroll_offset += msmove * 20.0f;
+                    if (msmove != 0) scroll_offset -= msmove * 20.0f;
                 } else if (CheckCollisionPointRec(mousepos, volbar)) {
                     if(IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
                         float pos = (mousepos.y - volbar.y) / volbar.height;
@@ -174,40 +173,39 @@ int main(void) {
             const float songpad = (content.height/5.0f)/10.0f;
             const float songw = content.width - songpad*2.0f;
             const float songh = content.height/5.0f - songpad;
-            Color color = SKYBLUE;
             DrawRectangleLines(content.x, content.y, content.width, content.height, BLACK);
+                float total_height = tracklist.size() * (songh + songpad);
+                float maxScroll = fmaxf(total_height - content.height, 0);
+                scroll_offset = Clamp(scroll_offset, 0.0f, maxScroll);
 
-            BeginTextureMode(songqueue);
-            ClearBackground(BLACK);
+            BeginScissorMode(content.x, content.y, content.width, content.height);
             if (it != std::prev(tracklist.end())) {
                 auto temp_it = std::next(it, 1);
-                for (float y = 0; temp_it != tracklist.end(); temp_it++, y+=songpad+songh) {
-                    Rectangle songbox = {songpad, y, songw, songh};
+                float y = content.y;
+                for (int i = 0; temp_it != tracklist.end(); i++, temp_it++) {
+                    Rectangle songbox = {
+                        content.x + songpad,
+                        y + i * (songh + songpad) - scroll_offset,
+                        songw, 
+                        songh
+                    };
+                    if (songbox.y + songbox.height < content.y || songbox.y > content.y + content.height)
+                        continue;
+
                     const char* songname = (*temp_it).title.c_str();
+                    const int fontsize = 24;
                     DrawRectangleRounded(songbox, .3f, 10, DARKBLUE);
-                    BeginScissorMode(songbox.x, songbox.y, songbox.width, songbox.height);
-                        DrawText(songname, songbox.x + 5,songbox.y + songbox.height/2.0f - 10, 25, SKYBLUE);
-                    EndScissorMode();
+                    DrawText(songname, songbox.x + 5, songbox.y + songbox.height/2.0f-5, fontsize, LIGHTGRAY);
                 }
             }
             else 
             {
                 const char* text = "Queue is EMPTY"; 
                 const int fontsize = 50;
-                DrawText(text, content.width/2.0f - MeasureText(text, fontsize)/2.0f, content.height/2.0f, 
+                DrawText(text, content.x + content.width/2.0f - MeasureText(text, fontsize)/2.0f, content.height/2.0f, 
                          fontsize, SKYBLUE);    
             }
-            EndTextureMode();
-                
-                float listsize = (tracklist.size()*songpad + tracklist.size()*songh);
-                float maxScroll =  listsize - content.height; 
-                scroll_offset = Clamp(scroll_offset, -maxScroll, 0);
-
-                Vector2 origin = { 0, 0 };
-                Rectangle source = { 0, scroll_offset, (float)songqueue.texture.width, (float)-songqueue.texture.height }; // flip Y
-                Rectangle dest = content;
-                DrawTexturePro(songqueue.texture, source, dest,
-                               origin, 0.0f, WHITE);
+            EndScissorMode();
             // draw control panel
             DrawRectangle(0, SCREEN_HEIGHT - controlpanel.height, SCREEN_WIDTH, controlpanel.height, LIGHTGRAY);
 
@@ -220,7 +218,6 @@ int main(void) {
     for (auto& s : tracklist) {
         UnloadMusicStream(s.music);
     }
-    UnloadRenderTexture(songqueue);
     CloseAudioDevice();
     CloseWindow();
     return 0;
@@ -281,6 +278,7 @@ void loadSongs(FilePathList droppedFiles, std::list<Track>* tracklist_pt) {
 
 // has to be legit music file
 std::string parseNameFromPath(std::string src) {
+    const int maxchars = 35;
     std::string temp;
     std::string::reverse_iterator it_s = src.rbegin();
     it_s--;
@@ -294,5 +292,7 @@ std::string parseNameFromPath(std::string src) {
         }
         it_s++;
     }
+    
+    if (temp.size() > maxchars) temp = temp.substr(0, maxchars+1);
     return temp;
 }
