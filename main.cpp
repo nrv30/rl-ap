@@ -174,7 +174,7 @@ int main(void) {
             const float songw = content.width - songpad*2.0f;
             const float songh = content.height/5.0f - songpad;
             DrawRectangleLines(content.x, content.y, content.width, content.height, BLACK);
-                float total_height = tracklist.size() * (songh + songpad);
+                float total_height = (tracklist.size()-1) * (songh + songpad);
                 float maxScroll = fmaxf(total_height - content.height, 0);
                 scroll_offset = Clamp(scroll_offset, 0.0f, maxScroll);
 
