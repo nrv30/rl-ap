@@ -49,11 +49,8 @@ int main(void) {
     // TODO: Embedd in the exe
     // Assets
     //Texture play = LoadTexture("../../assets/black-icon/Music-On.png");
-    Image drop = LoadImage("../../assets/black-icon/Home.png");
-    ImageResize(&drop, drop.width*2, drop.height*2);
-    ImageRotate(&drop, 180);
-    Texture drop_text = LoadTextureFromImage(drop);
-
+    // Texture2D drop = LoadTexture("../../assets/black-icon/Home.png");
+    
     // Texture play = LoadTexture("../../assets/black-icon/Play.png");
     // Texture pause = LoadTexture("../../assets/black-icon/Pause.png");
     // Texture left_skip = LoadTexture("../../assets/black-icon/SolidArrow_Left.png");
@@ -168,7 +165,12 @@ int main(void) {
             const char* text = "DROP MUSIC";
             const int fontsize = 50;
             DrawText(text, SCREEN_WIDTH/2.0f - MeasureText(text, fontsize)/2, SCREEN_HEIGHT/3.0f - fontsize, fontsize, SKYBLUE);
-            DrawTexture(drop_text, SCREEN_WIDTH/2.0f-drop.width/2.0f, SCREEN_HEIGHT/2.0f, WHITE);
+            // DrawTexturePro(drop, 
+            //     Rectangle {0, 0, (float)drop.width, (float)-drop.height}, 
+            //     (Rectangle) {SCREEN_WIDTH/2.0f-drop.width/2.0f, SCREEN_HEIGHT/2.0f-drop.height/2.0f, (float)drop.width*2, (float)drop.height*2}, 
+            //     (Vector2) {0,0}, 0, 
+            //     WHITE);
+
         } else {
             const float songpad = (content.height/5.0f)/10.0f;
             const float songw = content.width - songpad*2.0f;
