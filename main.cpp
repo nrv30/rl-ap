@@ -96,7 +96,13 @@ int main(void) {
     };
 
     Vector2 button_size = {454, 111};
-    Vector2 exit_box_size = {38, 41}; 
+    Rectangle exit_box = {
+        .x = 395, 
+        .y = 18,
+        .width = 38,
+        .height = 41,
+    };
+
     Rectangle hovered_exit = {
         .x = 0,
         .y = 0,
@@ -215,8 +221,8 @@ int main(void) {
 
         } else {
             const float songpad = (content.height/5.0f)/10.0f;
-            const float songw = content.width - songpad*2.0f;
-            const float songh = content.height/5.0f - songpad;
+            const float songw = normal.width;
+            const float songh = normal.height;
             DrawRectangleLines(content.x, content.y, content.width, content.height, BLACK);
                 float total_height = (tracklist.size()-1) * (songh + songpad);
                 float maxScroll = fmaxf(total_height - content.height, 0);
@@ -238,10 +244,10 @@ int main(void) {
 
                     // exit_box_size is the width and height of the exit_box
                     Rectangle song_box_exit_box = {
-                        .x = song_box.x + exit_box_size.x,
-                        .y = song_box.y + exit_box_size.y,
-                        .width = exit_box_size.x,
-                        .height = exit_box_size.y,
+                        .x = song_box.x + exit_box.x,
+                        .y = song_box.y + exit_box.y,
+                        .width = exit_box.width,
+                        .height = exit_box.height,
                     };
 
                     if (song_box.y + song_box.height < content.y || song_box.y > content.y + content.height)
@@ -267,8 +273,13 @@ int main(void) {
                     const char* songname = (*temp_it).title.c_str();
                     const int fontsize = 24;
                     //DrawRectangleRounded(song_box, .3f, 10, DARKBLUE);
-                    DrawTextureRec(atlas, src, (Vector2) {song_box.x, song_box.height,}, WHITE);
+                    DrawTextureRec(atlas, src, (Vector2) {song_box.x, song_box.y,}, WHITE);
                     DrawText(songname, song_box.x + 5, song_box.y + song_box.height/2.0f-5, fontsize, LIGHTGRAY);
+                    DrawRectangleLines(song_box_exit_box.x, 
+                        song_box_exit_box.y, 
+                        song_box_exit_box.width, 
+                        song_box_exit_box.height, 
+                        BLACK);
                 }
             }
             else 
@@ -354,7 +365,8 @@ void loadSongs(FilePathList droppedFiles, std::list<Track>* tracklist_pt) {
     }
 }
 
-// has to be legit music file
+// c:/hello.mp4 
+// -> hello
 std::string parseNameFromPath(std::string src) {
     const int maxchars = 35;
     std::string temp;
