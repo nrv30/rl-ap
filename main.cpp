@@ -14,18 +14,6 @@ typedef enum {
 } STATE;
 STATE state = START;
 
-typedef struct Track {
-    Music music;
-    std::string title;
-} Track;
-
-void loadSongs(FilePathList droppedFiles, std::list<Track>* tracklist_pt);
-std::string parseNameFromPath(std::string src);
-
-void seek_by_amount(std::list<Track>::iterator it, const float length, const float abs_timeplayed, const float amount);
-void del(std::list<Track>::iterator temp, std::list<Track>* tracklist);
-
-
 // UI
 typedef enum BUTTON_STATE {
     NORMAL,
@@ -35,9 +23,26 @@ typedef enum BUTTON_STATE {
     HOEVERED_EXIT_CLICK,
 };
 
+typedef struct Track {
+    Music music;
+    std::string title;
+    Rectangle pos;
+    BUTTON_STATE button_state;
+} Track;
+
+void loadSongs(FilePathList droppedFiles, std::list<Track>* tracklist_pt);
+std::string parseNameFromPath(std::string src);
+
+void seek_by_amount(std::list<Track>::iterator it, const float length, const float abs_timeplayed, const float amount);
+void del(std::list<Track>::iterator temp, std::list<Track>* tracklist);
+void updateQueue(std::list<Track>* tracklist_pt, std::list<Track>::iterator it, Vector2 mspos, 
+                 const Rectangle content, const float songpad, const float songh, const float songw, 
+                 const float scroll_offset, const Rectangle exit_box);
+
 void drawTitle(std::string title, Rectangle progbar, Rectangle controlpanel);
 void drawProgbar(const float abs_timeplayed, const float timeplayed, Rectangle progbar);
 void drawVolbar(const float vol, Rectangle volbar);
+Rectangle match_button_state(enum BUTTON_STATE bs);
 
 
 int main(void) {
@@ -64,14 +69,14 @@ int main(void) {
     // UI
     const float borderpad = SCREEN_WIDTH/10.0f;
 
-    Rectangle controlpanel = {
+    const Rectangle controlpanel = {
         .x = 0,
         .y = SCREEN_HEIGHT - SCREEN_HEIGHT/5.0f,
         .width = SCREEN_WIDTH,
         .height = SCREEN_HEIGHT/5.0f,
     };
             
-    Rectangle content = {
+    const Rectangle content = {
         .x = borderpad,
         .y = borderpad,
         .width = SCREEN_WIDTH-borderpad*2.0f,
@@ -95,48 +100,19 @@ int main(void) {
         .height = SCREEN_HEIGHT - (controlpanel.y + vertpad) - (SCREEN_HEIGHT-(progbar.y + progbar.height)),
     };
 
-    Vector2 button_size = {454, 111};
-    Rectangle exit_box = {
+    const Rectangle exit_box = {
         .x = 395, 
         .y = 18,
         .width = 38,
         .height = 41,
     };
+    
+    // src rectangles of button textures
 
-    Rectangle hovered_exit = {
-        .x = 0,
-        .y = 0,
-        .width = button_size.x,
-        .height = button_size.y,
-    };
-
-    Rectangle hovered_exit_click = {
-        .x = button_size.x,
-        .y = 0,
-        .width = button_size.x,
-        .height = button_size.y,
-    };
-
-    Rectangle selected = {
-        .x = 0,
-        .y = button_size.y,
-        .width = button_size.x,
-        .height = button_size.y,
-    };
-
-    Rectangle hovered = {
-        .x = button_size.x,
-        .y = button_size.y,
-        .width = button_size.x,
-        .height = button_size.y,
-    };
-
-    Rectangle normal = {
-        .x = 0,
-        .y = button_size.y*2.0f,
-        .width = button_size.x,
-        .height = button_size.y,
-    };
+    const float songpad = (content.height/5.0f)/10.0f;
+    const Vector2 song_button_size = {454, 111};
+    const float songw = song_button_size.x;
+    const float songh = song_button_size.y;
 
     SetTargetFPS(60);
     SetMasterVolume(.5);
@@ -150,45 +126,59 @@ int main(void) {
                 it = tracklist.begin();
                 state = PLAYING;
             }
-        }      
+        }
 
         if (state == PLAYING) {
+            mspos = GetMousePosition();
+            float total_height = (tracklist.size()-1) * (songh + songpad);
+            float maxScroll = fmaxf(total_height - content.height, 0);
+            scroll_offset = Clamp(scroll_offset, 0.0f, maxScroll);
+            updateQueue(&tracklist, it, mspos, content, songpad, songh, songw, scroll_offset, exit_box);
+
             if (!songStarted) {
                 length = GetMusicTimeLength(((*it).music));
                 PlayMusicStream((*it).music);
                 songStarted = true;
+
             } else {
-                mspos = GetMousePosition();
                 if (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_RIGHT)
                     && it != std::prev(tracklist.end())) {
                     StopMusicStream((*it).music);
                     songStarted = false;
                     it++; 
+
                 } else if (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_LEFT)
                            && it != tracklist.begin()) {
                     StopMusicStream((*it).music);
                     songStarted = false;
                     it--; 
+
                 } else if (IsKeyPressed(KEY_SPACE)) {
                     if (isPause) {
                         ResumeMusicStream((*it).music);
                     }
+
                     else {
                         PauseMusicStream((*it).music);
                     }
+
                     isPause = !isPause;
                 } else if (IsKeyPressed(KEY_RIGHT)) {
                     seek_by_amount(it, length, abs_timeplayed, 10.0f);
+
                 } else if (IsKeyPressed(KEY_LEFT)) {
                     seek_by_amount(it, length, abs_timeplayed, -10.0f);
+
                 } else if (CheckCollisionPointRec(mspos, progbar)) {
                     if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
                         float pos = (mspos.x - progbar.x) / progbar.width;
                         SeekMusicStream((*it).music, length*pos);
                     }
+
                 } else if (CheckCollisionPointRec(mspos, content)) {                    
                     float msmove = GetMouseWheelMove();
                     if (msmove != 0) scroll_offset -= msmove * 20.0f;
+                    
                 } else if (CheckCollisionPointRec(mspos, volbar)) {
                     if(IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
                         float pos = (mspos.y - volbar.y) / volbar.height;
@@ -220,66 +210,29 @@ int main(void) {
             //     WHITE);
 
         } else {
-            const float songpad = (content.height/5.0f)/10.0f;
-            const float songw = normal.width;
-            const float songh = normal.height;
             DrawRectangleLines(content.x, content.y, content.width, content.height, BLACK);
-                float total_height = (tracklist.size()-1) * (songh + songpad);
-                float maxScroll = fmaxf(total_height - content.height, 0);
-                scroll_offset = Clamp(scroll_offset, 0.0f, maxScroll);
 
             BeginScissorMode(content.x, content.y, content.width, content.height);
-            if (it != std::prev(tracklist.end())) {
-                auto temp_it = std::next(it, 1);
-                float y = content.y;
-                for (int i = 0; temp_it != tracklist.end(); i++, temp_it++) {
-                    Rectangle src;
-                    BUTTON_STATE bs;
-                    Rectangle song_box = {
-                        content.x + songpad,
-                        y + i * (songh + songpad) - scroll_offset,
-                        songw, 
-                        songh
-                    };
+            if (it != std::prev(tracklist.end())) { 
+                for (std::list<Track>::iterator temp_it = std::next(it, 1); temp_it != tracklist.end(); temp_it++) {
+                if ((*temp_it).pos.y + (*temp_it).pos.height < content.y || 
+                   (*temp_it).pos.y > content.y + content.height) continue;
 
-                    // exit_box_size is the width and height of the exit_box
-                    Rectangle song_box_exit_box = {
-                        .x = song_box.x + exit_box.x,
-                        .y = song_box.y + exit_box.y,
-                        .width = exit_box.width,
-                        .height = exit_box.height,
-                    };
-
-                    if (song_box.y + song_box.height < content.y || song_box.y > content.y + content.height)
-                        continue;
-                    if (CheckCollisionPointRec(mspos, song_box)) {
-                        if (CheckCollisionPointRec(mspos, song_box_exit_box)) {
-                            if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-                                std::list<Track>::iterator del_it = temp_it;
-                                temp_it = std::prev(temp_it, 1);
-                                del(del_it, &tracklist);
-                                i--;
-                                continue;
-                            } else {
-                                src = hovered_exit;
-                            }
-                        } else {
-                            src = hovered;
-                        }
-                    } else {
-                        src = normal;
-                    }
-
-                    const char* songname = (*temp_it).title.c_str();
-                    const int fontsize = 24;
-                    //DrawRectangleRounded(song_box, .3f, 10, DARKBLUE);
-                    DrawTextureRec(atlas, src, (Vector2) {song_box.x, song_box.y,}, WHITE);
-                    DrawText(songname, song_box.x + 5, song_box.y + song_box.height/2.0f-5, fontsize, LIGHTGRAY);
-                    DrawRectangleLines(song_box_exit_box.x, 
-                        song_box_exit_box.y, 
-                        song_box_exit_box.width, 
-                        song_box_exit_box.height, 
-                        BLACK);
+                const char* songname = (*temp_it).title.c_str();
+                const int fontsize = 24;
+                //DrawRectangleRounded(song_box, .3f, 10, DARKBLUE);
+                Rectangle src = match_button_state((*temp_it).button_state);
+                DrawTextureRec(atlas, src, (Vector2) {(*temp_it).pos.x, (*temp_it).pos.y}, WHITE);
+                DrawText(songname, 
+                        (*temp_it).pos.x + 5, 
+                        (*temp_it).pos.y + (*temp_it).pos.height/2.0f-5, 
+                        fontsize, 
+                        LIGHTGRAY);
+                //     DrawRectangleLines(song_box_exit_box.x, 
+                //         song_box_exit_box.y, 
+                //         song_box_exit_box.width, 
+                //         song_box_exit_box.height, 
+                //         BLACK);
                 }
             }
             else 
@@ -308,6 +261,60 @@ int main(void) {
     return 0;
 }
 
+// copmpute the rectangle position, button state in this and store it for drawing
+void updateQueue(std::list<Track>* tracklist_pt, std::list<Track>::iterator it, Vector2 mspos, 
+                 const Rectangle content, const float songpad, const float songh, const float songw, 
+                 const float scroll_offset, const Rectangle exit_box) {
+// there must be more than one element in the list
+    if (it != std::prev((*tracklist_pt).end())) {
+        auto temp_it = std::next(it, 1);
+        const float y = content.y;
+        for (int i = 0; temp_it != (*tracklist_pt).end(); i++, temp_it++) {
+            Rectangle src;
+            BUTTON_STATE bs;
+            Rectangle song_box = {
+                content.x + songpad,
+                y + i * (songh + songpad) - scroll_offset,
+                songw, 
+                songh
+            };
+
+        // exit_box_size is the width and height of the exit_box
+        Rectangle song_box_exit_box = {
+            .x = song_box.x + exit_box.x,
+            .y = song_box.y + exit_box.y,
+            .width = exit_box.width,
+            .height = exit_box.height,
+        };
+
+        if (song_box.y + song_box.height < content.y || song_box.y > content.y + content.height)
+            continue;
+
+        // everything beyond here WILL be drawn
+        if (CheckCollisionPointRec(mspos, song_box)) {
+            if (CheckCollisionPointRec(mspos, song_box_exit_box)) {
+                if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+                    std::list<Track>::iterator del_it = temp_it;
+                    temp_it = std::prev(temp_it, 1);
+                    del(del_it, tracklist_pt);
+                    i--;
+                    continue;
+                } else {
+                    (*temp_it).button_state = HOVERED_EXIT;
+                }
+            } else {
+                if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+                    (*temp_it).button_state = SELECTED;
+                }
+            }
+        } else {
+            (*temp_it).button_state = NORMAL;
+        }
+
+        }
+    }
+}
+
 void del(std::list<Track>::iterator temp, std::list<Track>* tracklist) {
     (*tracklist).erase(temp);
 }
@@ -317,6 +324,64 @@ void seek_by_amount(std::list<Track>::iterator it, const float length, const flo
     SeekMusicStream((*it).music, abs_timeplayed + amount); 
 }
 
+// void skipFor();
+
+// void skipBk();
+
+Rectangle match_button_state(enum BUTTON_STATE bs) {
+    static const Vector2 button_size = {454, 111};
+    static const Rectangle hovered_exit = {
+        .x = 0,
+        .y = 0,
+        .width = button_size.x,
+        .height = button_size.y,
+    };
+
+    static const Rectangle hovered_exit_click = {
+        .x = button_size.x,
+        .y = 0,
+        .width = button_size.x,
+        .height = button_size.y,
+    };
+
+    static const Rectangle selected = {
+        .x = 0,
+        .y = button_size.y,
+        .width = button_size.x,
+        .height = button_size.y,
+    };
+
+    static const Rectangle hovered = {
+        .x = button_size.x,
+        .y = button_size.y,
+        .width = button_size.x,
+        .height = button_size.y,
+    };
+
+    static const Rectangle normal = {
+        .x = 0,
+        .y = button_size.y*2.0f,
+        .width = button_size.x,
+        .height = button_size.y,
+    };
+    switch(bs) {
+        case NORMAL:
+            return normal;
+            break;
+        case HOVERED:
+            return hovered;
+            break;
+        case HOVERED_EXIT:
+            return hovered_exit;
+            break;
+        case SELECTED:
+            return selected;
+            break;
+        default: 
+        return (Rectangle) {0,0,0,0};
+        break;
+    }
+}
 void drawTitle(std::string title, Rectangle progbar, Rectangle controlpanel) {
         const char* text = title.c_str();
         const int fontsize = 24;
